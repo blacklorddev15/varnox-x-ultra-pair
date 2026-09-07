@@ -43,6 +43,11 @@ CREATE TABLE IF NOT EXISTS ${PREFIX}sessions (
   status TEXT NOT NULL DEFAULT 'disconnected',
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS ${PREFIX}server_heartbeats (
+  server_id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL DEFAULT '',
+  last_seen TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 CREATE TABLE IF NOT EXISTS ${PREFIX}premium_keys (
   id BIGSERIAL PRIMARY KEY,
   key TEXT UNIQUE NOT NULL,
@@ -70,6 +75,12 @@ async function ensureTarget(url) {
     `INSERT INTO ${PREFIX}settings (key, value) VALUES ('active_database_url', $1)
      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
     [url]
+  );
+  // Seed the three tracked servers (1 = panel 1, etc.).
+  await pool.query(
+    `INSERT INTO ${PREFIX}server_heartbeats (server_id, name)
+     SELECT gs, 'Server ' || gs FROM generate_series(1, 3) gs
+     ON CONFLICT (server_id) DO NOTHING`
   );
   return pool;
 }
