@@ -9,6 +9,25 @@ function json(res, code, obj) {
   res.end(JSON.stringify(obj));
 }
 
+/**
+ * Vercel hands a plain Node function the raw request body, which is a Buffer (or a
+ * string) - NOT a parsed object. `JSON.parse(req.body)` therefore throws every time,
+ * body ended up as {} and every real heartbeat was answered with
+ * "server must be 1, 2 or 3". Handle every shape, like api/admin.js does.
+ */
+function readBody(req) {
+  const b = req.body;
+  if (!b) return {};
+  if (Buffer.isBuffer(b)) {
+    try { return JSON.parse(b.toString('utf8') || '{}'); } catch (_) { return {}; }
+  }
+  if (typeof b === 'string') {
+    try { return JSON.parse(b || '{}'); } catch (_) { return {}; }
+  }
+  if (typeof b === 'object') return b;
+  return {};
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
@@ -17,8 +36,8 @@ module.exports = async function handler(req, res) {
 
   if (req.method !== 'POST') return json(res, 405, { error: 'Method not allowed. Use POST.' });
 
-  let body = {};
-  try { body = JSON.parse(req.body || '{}'); } catch (_) { body = {}; }
+  // Accept the values from the JSON body or from the query string.
+  const body = Object.assign({}, readBody(req), req.query || {});
 
   const server = Number(body.server);
   if (!Number.isInteger(server) || server < 1 || server > 3) {
