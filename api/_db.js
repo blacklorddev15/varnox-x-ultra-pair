@@ -62,6 +62,14 @@ CREATE TABLE IF NOT EXISTS ${PREFIX}settings (
 );
 `;
 
+// Seed the three tracked servers. last_seen starts one hour in the past so a
+// freshly created table never fakes "online" before a bot has actually pinged.
+const SEED_SERVERS_SQL = `
+INSERT INTO ${PREFIX}server_heartbeats (server_id, name, last_seen)
+  SELECT gs, 'Server ' || gs, now() - interval '1 hour' FROM generate_series(1, 3) gs
+  ON CONFLICT (server_id) DO NOTHING;
+`;
+
 async function readControl() {
   if (!controlPool) throw new Error('DATABASE_URL is not set on this deployment.');
   return controlPool;
@@ -77,12 +85,44 @@ async function ensureTarget(url) {
     [url]
   );
   // Seed the three tracked servers (1 = panel 1, etc.).
-  await pool.query(
-    `INSERT INTO ${PREFIX}server_heartbeats (server_id, name)
-     SELECT gs, 'Server ' || gs FROM generate_series(1, 3) gs
-     ON CONFLICT (server_id) DO NOTHING`
-  );
+  await pool.query(SEED_SERVERS_SQL);
   return pool;
+}
+
+/**
+ * Make sure the database the site is ACTUALLY reading has the full schema.
+ *
+ * ensureTarget() only runs when a database is switched from the admin panel, so a
+ * database pointed at any other way (env var, or the settings row written
+ * directly) could be missing tables — e.g. varnox_server_heartbeats. When that
+ * happened /api/stats returned an EMPTY server list instead of three servers
+ * marked offline, and every server tile stayed dead.
+ *
+ * This runs the same idempotent DDL against the active database, at most once
+ * every five minutes, and never throws.
+ */
+let ensuredAt = 0;
+let inFlight = null;
+
+async function ensureActiveSchema(force = false) {
+  if (!force && Date.now() - ensuredAt < 5 * 60 * 1000) return false;
+  if (inFlight) return inFlight;
+  inFlight = (async () => {
+    const url = await activeUrl();
+    const pool = poolFor(url);
+    await pool.query(SCHEMA_SQL);
+    await pool.query(SEED_SERVERS_SQL);
+    ensuredAt = Date.now();
+    return true;
+  })()
+    .catch((e) => {
+      console.error('[db] ensureActiveSchema:', e && e.message);
+      return false;
+    })
+    .finally(() => {
+      inFlight = null;
+    });
+  return inFlight;
 }
 
 // Resolve the ACTIVE database URL (control DB settings row, fallback env).
@@ -133,4 +173,14 @@ async function switchActiveDatabase(newUrl) {
   return url;
 }
 
-module.exports = { pool: null, controlPool, query, getSetting, setSetting, switchActiveDatabase, activeUrl, ensureTarget };
+module.exports = {
+  pool: null,
+  controlPool,
+  query,
+  getSetting,
+  setSetting,
+  switchActiveDatabase,
+  activeUrl,
+  ensureTarget,
+  ensureActiveSchema,
+};

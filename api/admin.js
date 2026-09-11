@@ -1,7 +1,15 @@
 // POST /api/admin  { action, password?, ... }  or GET /api/admin?action=...
 // Actions: login | stats | sessions | keys | generate_key | set_notice | set_premium
+//          | current_db | switch_db | servers | reset_heartbeats
 // Protected by ADMIN_PASSWORD env var (sent as X-Admin-Password header or body.password).
-const { query, getSetting, setSetting, switchActiveDatabase, activeUrl } = require('./_db');
+const {
+  query,
+  getSetting,
+  setSetting,
+  switchActiveDatabase,
+  activeUrl,
+  ensureActiveSchema,
+} = require('./_db');
 
 function json(res, code, obj) {
   res.statusCode = code;
@@ -45,6 +53,7 @@ module.exports = async function handler(req, res) {
   if (!authOK(req, body)) return json(res, 401, { error: 'Unauthorized. Login first.' });
 
   try {
+    await ensureActiveSchema();
     switch (action) {
       case 'stats': {
         const [sess, keys] = await Promise.all([
@@ -101,6 +110,19 @@ module.exports = async function handler(req, res) {
       case 'switch_db': {
         const url = await switchActiveDatabase(String(body.url || '').trim());
         return json(res, 200, { success: true, url });
+      }
+
+      case 'servers': {
+        const { rows } = await query(
+          'SELECT server_id, name, last_seen FROM varnox_server_heartbeats ORDER BY server_id'
+        );
+        return json(res, 200, { servers: rows });
+      }
+
+      // Clear every server heartbeat so the dashboard starts from a clean slate.
+      case 'reset_heartbeats': {
+        await query(`UPDATE varnox_server_heartbeats SET last_seen = now() - interval '1 hour'`);
+        return json(res, 200, { success: true });
       }
 
       default:
