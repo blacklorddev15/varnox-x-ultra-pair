@@ -67,8 +67,12 @@
       </div>
 
       <div class="card">
-        <h1 style="font-size:16px">Live sessions</h1>
+        <h1 style="font-size:16px">Paired users</h1>
+        <p class="sub">Everyone whose WhatsApp is linked to this bot — <span id="sessCount" class="mono">-</span></p>
         <div id="sessionsList" class="mono"></div>
+        <button class="btn ghost" id="clearSessionsBtn">Delete disconnected</button>
+        <div id="clearMsg" class="status-box"></div>
+        <p class="sub" style="margin-top:8px">Deleting clears the database row only. To unlink a device fully, run <span class="mono">/delpair &lt;number&gt;</span> in the bot first — that revokes the WhatsApp link and clears the session files.</p>
       </div>
     </div>
 

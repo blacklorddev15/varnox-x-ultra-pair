@@ -76,6 +76,34 @@ module.exports = async function handler(req, res) {
         return json(res, 200, { sessions: rows });
       }
 
+      // Removes ONE paired user. This only clears the database row: revoking the WhatsApp
+      // link itself is the bot's job (/delpair), which also deletes ./sessions/<id>.
+      case 'delete_session': {
+        const id = String(body.id == null ? '' : body.id).trim().slice(0, 200);
+        if (!id) return json(res, 400, { error: 'Missing session id.' });
+        const { rows } = await query(
+          'DELETE FROM varnox_sessions WHERE id = $1 RETURNING id', [id]
+        );
+        if (!rows.length) return json(res, 404, { error: 'No such session.' });
+        return json(res, 200, { success: true, deleted: rows[0].id });
+      }
+
+      // Bulk path for rows the bot has already logged out. The predicate is exactly
+      // "disconnected", so a session that is still linked can never be deleted here.
+      // Pass { dryRun: true } to get the count without deleting anything.
+      case 'clear_sessions': {
+        if (body.dryRun) {
+          const { rows } = await query(
+            "SELECT count(*)::int AS n FROM varnox_sessions WHERE LOWER(status) = 'disconnected'"
+          );
+          return json(res, 200, { success: true, dryRun: true, wouldClear: rows[0].n });
+        }
+        const { rows } = await query(
+          "DELETE FROM varnox_sessions WHERE LOWER(status) = 'disconnected' RETURNING id"
+        );
+        return json(res, 200, { success: true, cleared: rows.length });
+      }
+
       case 'keys': {
         const { rows } = await query(
           'SELECT id, key, status, used_phone, used_at, created_at FROM varnox_premium_keys ORDER BY id DESC LIMIT 100'

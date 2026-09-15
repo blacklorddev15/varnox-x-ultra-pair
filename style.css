@@ -97,3 +97,17 @@ textarea { width: 100%; background: var(--field); border: 1px solid var(--gold-l
 .notice-banner { display: none; background: rgba(250,204,21,.1); border: 1px solid rgba(250,204,21,.35); color: var(--gold); padding: 10px 14px; border-radius: 10px; font-size: 13px; margin-bottom: 12px; }
 .notice-banner.show { display: block; }
 .mono { font-family: Menlo, Consolas, monospace; font-size: 12px; }
+
+/* ── paired users ───────────────────────────────────────────── */
+.sess-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; text-align: left; }
+.sess-main strong { font-size: 13px; font-weight: 700; }
+.sess-main small { font-size: 10px; color: var(--text-dim); }
+.sess-meta { opacity: .8; }
+.sess-right { display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.del-btn {
+  background: transparent; border: 1px solid #7a3540; color: #f87171;
+  font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 8px;
+  cursor: pointer; font-family: inherit;
+}
+.del-btn:hover:not(:disabled) { background: rgba(248, 113, 113, .1); }
+.del-btn:disabled { opacity: .5; cursor: wait; }

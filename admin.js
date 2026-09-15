@@ -54,13 +54,106 @@ async function refreshKeys() {
   ).join('') || '<p class="sub">No keys yet.</p>';
 }
 
+// Phone numbers and session ids come out of the database, so they are escaped before they
+// go anywhere near markup.
+function esc(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function tagClass(status) {
+  return status === 'connected' ? 'on' : status === 'disconnected' ? 'off' : 'x';
+}
+
+function relTime(iso) {
+  const t = iso ? new Date(iso).getTime() : 0;
+  if (!t) return 'never';
+  const mins = Math.floor((Date.now() - t) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins + 'm ago';
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + 'h ago';
+  return Math.floor(hrs / 24) + 'd ago';
+}
+
 async function refreshSessions() {
   const d = await api('sessions');
   if (d.error) return;
-  $('sessionsList').innerHTML = (d.sessions || []).slice(0, 40).map(s =>
-    `<div class="row"><span class="mono">${s.id}</span><span class="tag ${s.status === 'connected' ? 'on' : s.status === 'disconnected' ? 'off' : 'x'}">${s.status}</span></div>`
-  ).join('') || '<p class="sub">No sessions yet.</p>';
+  const rows = (d.sessions || []).slice(0, 50);
+
+  $('sessionsList').innerHTML = rows.map(s => {
+    const label = s.phone || s.id;
+    // show the session id underneath only when it adds something the phone does not
+    const sub = (s.phone && s.id && s.id !== s.phone) ? esc(s.id) : '';
+    return `<div class="row">` +
+      `<span class="sess-main"><strong>${esc(label)}</strong>` +
+        (sub ? `<small class="mono">${sub}</small>` : '') +
+        `<small class="mono sess-meta">${esc(relTime(s.updated_at))}</small></span>` +
+      `<span class="sess-right">` +
+        `<span class="tag ${tagClass(s.status)}">${esc(s.status || 'stored')}</span>` +
+        `<button type="button" class="del-btn" data-id="${esc(s.id)}">Delete</button>` +
+      `</span>` +
+    `</div>`;
+  }).join('') || '<p class="sub">No paired users yet.</p>';
+
+  const c = $('sessCount');
+  if (c) c.textContent = rows.length + (rows.length === 1 ? ' user' : ' users');
 }
+
+// One delegated listener, so re-rendering the list never leaves stale handlers behind.
+$('sessionsList').addEventListener('click', async (event) => {
+  const btn = event.target.closest('.del-btn');
+  if (!btn) return;
+  const id = btn.getAttribute('data-id');
+  if (!confirm(`Delete ${id}?\n\n` +
+    `This removes the row from the database, so the portal stops listing them. ` +
+    `It does NOT unlink WhatsApp — revoke the device with /delpair on the bot.`)) return;
+
+  btn.disabled = true;
+  btn.textContent = '…';
+  const d = await api('delete_session', { id });
+  if (d.success) {
+    await refreshAll();
+  } else {
+    alert(d.error || 'Delete failed');
+    btn.disabled = false;
+    btn.textContent = 'Delete';
+  }
+});
+
+// Counts first so the confirmation shows the real number, then re-reads everything.
+$('clearSessionsBtn').addEventListener('click', async () => {
+  const box = $('clearMsg');
+  box.textContent = '⏳ Counting disconnected sessions…';
+  box.className = 'status-box show info';
+
+  const pre = await api('clear_sessions', { dryRun: true });
+  if (pre.error) {
+    box.textContent = '❌ ' + pre.error;
+    box.className = 'status-box show err';
+    return;
+  }
+  const n = pre.wouldClear || 0;
+  if (!n) {
+    box.textContent = '✓ Nothing to delete — no disconnected sessions.';
+    box.className = 'status-box show ok';
+    return;
+  }
+  if (!confirm(`Delete ${n} disconnected session${n === 1 ? '' : 's'}?\n\nThis cannot be undone. Connected sessions are not touched.`)) {
+    box.textContent = 'Cancelled — nothing was deleted.';
+    box.className = 'status-box show info';
+    return;
+  }
+  const d = await api('clear_sessions', {});
+  if (!d.success) {
+    box.textContent = '❌ ' + (d.error || 'Failed');
+    box.className = 'status-box show err';
+    return;
+  }
+  box.textContent = `✅ Deleted ${d.cleared} disconnected session${d.cleared === 1 ? '' : 's'}.`;
+  box.className = 'status-box show ok';
+  await refreshAll();
+});
 
 async function refreshAll() {
   await refreshStats();
