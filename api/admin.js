@@ -1,6 +1,6 @@
 // POST /api/admin  { action, password?, ... }  or GET /api/admin?action=...
 // Actions: login | stats | sessions | keys | generate_key | set_notice | set_premium
-//          | current_db | switch_db | servers | reset_heartbeats
+//          | current_db | switch_db | servers | reset_heartbeats | redeploy
 // Protected by ADMIN_PASSWORD env var (sent as X-Admin-Password header or body.password).
 const {
   query,
@@ -24,6 +24,15 @@ function readBody(req) {
   if (typeof b === 'string') { try { return JSON.parse(b || '{}'); } catch { return {}; } }
   if (typeof b === 'object') return b;
   return {};
+}
+
+// Never hand back a usable credential: the password is replaced with dots. This endpoint
+// used to return the whole connection string, which gave a working database credential to
+// anyone who could reach the admin. The sibling portals already mask it; this brings this
+// one into line. The password is not needed to identify a database.
+function maskUrl(url) {
+  const m = String(url || '').match(/^(postgres(?:ql)?:\/\/[^:]+:)[^@]+@(.*)$/i);
+  return m ? `${m[1]}\u2022\u2022\u2022\u2022@${m[2]}` : '';
 }
 
 function authOK(req, body) {
@@ -130,14 +139,30 @@ module.exports = async function handler(req, res) {
 
       case 'current_db': {
         const url = await activeUrl();
-        let host = url;
-        try { host = new URL(url).host; } catch (_) { /* ignore */ }
-        return json(res, 200, { success: true, url, host });
+        let host = '';
+        let database = '';
+        try {
+          const parsed = new URL(url);
+          host = parsed.host;
+          database = parsed.pathname.replace(/^\//, '');
+        } catch (_) { /* ignore */ }
+        // Host, database name and a masked string only -- never the raw connection string.
+        //
+        // controlHost is the CONTROL database (process.env.DATABASE_URL): what every cold
+        // start bootstraps from, and what the site falls back to when the stored pointer
+        // cannot be read. When it differs from the active database, or when it is the
+        // suspended one, that is the first fact worth seeing.
+        let controlHost = '';
+        try { controlHost = new URL(String(process.env.DATABASE_URL || '')).host; }
+        catch (_) { /* ignore */ }
+        return json(res, 200, { success: true, host, database, urlMasked: maskUrl(url), controlHost });
       }
 
       case 'switch_db': {
         const url = await switchActiveDatabase(String(body.url || '').trim());
-        return json(res, 200, { success: true, url });
+        let host = '';
+        try { host = new URL(url).host; } catch (_) { /* ignore */ }
+        return json(res, 200, { success: true, host, urlMasked: maskUrl(url) });
       }
 
       case 'servers': {
@@ -151,6 +176,77 @@ module.exports = async function handler(req, res) {
       case 'reset_heartbeats': {
         await query(`UPDATE varnox_server_heartbeats SET last_seen = now() - interval '1 hour'`);
         return json(res, 200, { success: true });
+      }
+
+      // Rebuild the current production deployment.
+      //
+      // Vercel only applies environment variables on a NEW build, so changing DATABASE_URL
+      // does nothing until something rebuilds. That rebuild is the one step that otherwise
+      // forces a trip to the dashboard, which is exactly what this button exists to avoid.
+      //
+      // Redeploying by deploymentId inherits every setting from that build - environment
+      // variables included - which is what is wanted here. See:
+      // https://vercel.com/docs/rest-api/deployments/create-a-new-deployment
+      case 'redeploy': {
+        if (typeof fetch !== 'function') {
+          return json(res, 200, {
+            success: false,
+            message: 'This deployment is running a Node runtime without fetch; needs Node 18+.',
+          });
+        }
+        const token = String(process.env.VERCEL_API_TOKEN || '').trim();
+        const project = String(process.env.PROJECT_ID || process.env.VERCEL_PROJECT_ID || '').trim();
+        const team = String(process.env.TEAM_ID || process.env.VERCEL_TEAM_ID || '').trim();
+        if (!token || !project) {
+          return json(res, 200, {
+            success: false,
+            message: 'Redeploy needs VERCEL_API_TOKEN and PROJECT_ID set on this deployment.',
+          });
+        }
+        const auth = { Authorization: `Bearer ${token}` };
+        const teamQ = team ? `&teamId=${encodeURIComponent(team)}` : '';
+
+        const listRes = await fetch(
+          `https://api.vercel.com/v6/deployments?projectId=${encodeURIComponent(project)}`
+          + `&target=production&limit=1${teamQ}`,
+          { headers: auth }
+        );
+        const list = await listRes.json();
+        if (!listRes.ok) {
+          return json(res, 200, {
+            success: false,
+            message: 'Vercel: ' + ((list.error && list.error.message) || listRes.status),
+          });
+        }
+        const latest = (list.deployments || [])[0];
+        if (!latest) {
+          return json(res, 200, { success: false, message: 'No production deployment found to rebuild.' });
+        }
+
+        const createRes = await fetch(
+          `https://api.vercel.com/v13/deployments${team ? `?teamId=${encodeURIComponent(team)}` : ''}`,
+          {
+            method: 'POST',
+            headers: Object.assign({ 'Content-Type': 'application/json' }, auth),
+            body: JSON.stringify({
+              name: latest.name,
+              deploymentId: latest.uid,
+              target: 'production',
+            }),
+          }
+        );
+        const created = await createRes.json();
+        if (!createRes.ok) {
+          return json(res, 200, {
+            success: false,
+            message: 'Vercel: ' + ((created.error && created.error.message) || createRes.status),
+          });
+        }
+        return json(res, 200, {
+          success: true,
+          message: 'Rebuild started — the site stays up while it builds.',
+          url: created.url ? `https://${created.url}` : '',
+        });
       }
 
       default:
