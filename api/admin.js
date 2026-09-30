@@ -333,7 +333,25 @@ module.exports = async function handler(req, res) {
       }
 
       case 'update_database': {
-        const url = await switchActiveDatabase(String(body.url || '').trim());
+        const raw = String(body.url || '').trim();
+        if (!/^postgres(ql)?:\/\//i.test(raw)) {
+          return json(res, 200, {
+            ok: false, success: false,
+            message: 'That does not look like a Postgres connection string.',
+          });
+        }
+        // switchActiveDatabase validates by CONNECTING, so a well-formed but unreachable
+        // string throws here. Catch it: the landing page prints data.message, and letting
+        // this reach the outer handler would surface as the literal text "undefined".
+        let url;
+        try {
+          url = await switchActiveDatabase(raw);
+        } catch (e) {
+          return json(res, 200, {
+            ok: false, success: false,
+            message: 'Could not switch database: ' + (e && e.message),
+          });
+        }
         const host = hostOf(url);
         return json(res, 200, {
           ok: true, success: true, host, dbHost: host, urlMasked: maskUrl(url),
