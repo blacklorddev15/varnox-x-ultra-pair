@@ -1,7 +1,10 @@
 // POST /api/admin  { action, password?, ... }  or GET /api/admin?action=...
 // Actions: login | stats | sessions | keys | generate_key | set_notice | set_premium
 //          | current_db | switch_db | servers | reset_heartbeats | redeploy
+// Legacy aliases used by the landing page: status | test | update_database
+//          | update_notice | get_premium | generate_keys | list_keys
 // Protected by ADMIN_PASSWORD env var (sent as X-Admin-Password header or body.password).
+const { Pool } = require('pg');
 const {
   query,
   getSetting,
@@ -33,6 +36,34 @@ function readBody(req) {
 function maskUrl(url) {
   const m = String(url || '').match(/^(postgres(?:ql)?:\/\/[^:]+:)[^@]+@(.*)$/i);
   return m ? `${m[1]}\u2022\u2022\u2022\u2022@${m[2]}` : '';
+}
+
+function hostOf(url) {
+  try { return new URL(url).host; } catch (_) { return ''; }
+}
+
+function rand(n) {
+  return Array.from({ length: n }, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[Math.floor(Math.random() * 36)]).join('');
+}
+
+// Open a throwaway pool against an arbitrary connection string, prove it answers, close it.
+// Deliberately does NOT go through ensureTarget(): "test connection" must not create tables
+// or write the active_database_url row into a database the operator is only inspecting.
+async function testConnection(url) {
+  const pool = new Pool({
+    connectionString: String(url).split('?')[0],
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 8000,
+    max: 1,
+  });
+  try {
+    const r = await pool.query('SELECT current_database() AS db');
+    return { ok: true, message: `Connection OK — database "${r.rows[0].db}".`, database: r.rows[0].db };
+  } catch (e) {
+    return { ok: false, message: 'Connection failed: ' + (e && e.message) };
+  } finally {
+    await pool.end().catch(() => {});
+  }
 }
 
 function authOK(req, body) {
@@ -121,10 +152,9 @@ module.exports = async function handler(req, res) {
       }
 
       case 'generate_key': {
-        const rand = (n) => Array.from({ length: n }, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[Math.floor(Math.random() * 36)]).join('');
         const newKey = `VN-${rand(4)}-${rand(4)}`;
         await query('INSERT INTO varnox_premium_keys (key, status) VALUES ($1, $2)', [newKey, 'unused']);
-        return json(res, 200, { key: newKey });
+        return json(res, 200, { success: true, ok: true, key: newKey });
       }
 
       case 'set_notice': {
@@ -134,7 +164,12 @@ module.exports = async function handler(req, res) {
 
       case 'set_premium': {
         await setSetting('premiumMode', body.enabled ? 'true' : 'false');
-        return json(res, 200, { success: true, premiumMode: !!body.enabled });
+        return json(res, 200, {
+          success: true,
+          ok: true,
+          premiumMode: !!body.enabled,
+          message: body.enabled ? 'Premium mode enabled.' : 'Premium mode disabled.',
+        });
       }
 
       case 'current_db': {
@@ -160,9 +195,7 @@ module.exports = async function handler(req, res) {
 
       case 'switch_db': {
         const url = await switchActiveDatabase(String(body.url || '').trim());
-        let host = '';
-        try { host = new URL(url).host; } catch (_) { /* ignore */ }
-        return json(res, 200, { success: true, host, urlMasked: maskUrl(url) });
+        return json(res, 200, { success: true, host: hostOf(url), urlMasked: maskUrl(url) });
       }
 
       case 'servers': {
@@ -261,6 +294,101 @@ module.exports = async function handler(req, res) {
           success: true,
           message: 'Rebuild started — the site stays up while it builds.',
           url: created.url ? `https://${created.url}` : '',
+        });
+      }
+
+      /* ── Landing-page aliases ────────────────────────────────────────────
+         index.html was written against an older action vocabulary: status,
+         test, update_database, update_notice, get_premium, generate_keys,
+         list_keys. None of those existed in this handler, so the landing
+         admin modal answered every unlock attempt with "Unknown action." and
+         the panel never opened — a correct password looked exactly like a
+         wrong one. The aliases below map those names onto the handlers above
+         and answer in the { ok } shape that page reads, while still carrying
+         { success } so admin.html is unaffected. */
+
+      case 'status': {
+        const url = await activeUrl();
+        const dbHost = hostOf(url);
+        return json(res, 200, {
+          ok: true,
+          success: true,
+          dbHost,
+          host: dbHost,
+          notice: (await getSetting('notice')) || '',
+          urlMasked: maskUrl(url),
+        });
+      }
+
+      case 'test': {
+        const url = String(body.url || '').trim();
+        if (!/^postgres(ql)?:\/\//i.test(url)) {
+          return json(res, 200, {
+            ok: false, success: false,
+            message: 'That does not look like a Postgres connection string.',
+          });
+        }
+        const r = await testConnection(url);
+        return json(res, 200, Object.assign({ success: r.ok }, r));
+      }
+
+      case 'update_database': {
+        const url = await switchActiveDatabase(String(body.url || '').trim());
+        const host = hostOf(url);
+        return json(res, 200, {
+          ok: true, success: true, host, dbHost: host, urlMasked: maskUrl(url),
+          message: `Database switched to ${host}. Live immediately — the pointer is stored in `
+                 + 'the database, so no redeploy is needed.',
+        });
+      }
+
+      case 'update_notice': {
+        const notice = String(body.notice || '');
+        await setSetting('notice', notice);
+        return json(res, 200, {
+          ok: true, success: true, notice,
+          message: notice ? 'Notice published.' : 'Notice cleared.',
+        });
+      }
+
+      case 'get_premium': {
+        const mode = (await getSetting('premiumMode')) === 'true';
+        const { rows } = await query(
+          'SELECT key, status, used_phone FROM varnox_premium_keys ORDER BY id DESC LIMIT 100'
+        );
+        return json(res, 200, {
+          ok: true,
+          success: true,
+          mode: mode ? 'on' : 'off',
+          keysTotal: rows.length,
+          keysUsed: rows.filter((r) => String(r.status || '').toLowerCase() !== 'unused').length,
+          recentKeys: rows.slice(0, 10).map((r) => ({
+            key: r.key, status: r.status, usedPhone: r.used_phone || '',
+          })),
+        });
+      }
+
+      case 'generate_keys': {
+        const count = Math.min(50, Math.max(1, Number(body.count) || 5));
+        const made = Array.from({ length: count }, () => `VN-${rand(4)}-${rand(4)}`);
+        await query(
+          'INSERT INTO varnox_premium_keys (key, status) SELECT k, $2 FROM unnest($1::text[]) AS k',
+          [made, 'unused']
+        );
+        return json(res, 200, {
+          ok: true, success: true, keys: made,
+          message: `${made.length} key${made.length === 1 ? '' : 's'} generated.`,
+        });
+      }
+
+      case 'list_keys': {
+        const { rows } = await query(
+          'SELECT key, status, used_phone FROM varnox_premium_keys ORDER BY id DESC LIMIT 100'
+        );
+        return json(res, 200, {
+          ok: true,
+          success: true,
+          keys: rows.map((r) => ({ key: r.key, status: r.status, usedPhone: r.used_phone || '' })),
         });
       }
 
