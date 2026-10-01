@@ -100,12 +100,28 @@ module.exports = async function handler(req, res) {
           query('SELECT count(*)::int AS total, count(*) FILTER (WHERE status = \'connected\')::int AS online FROM varnox_sessions'),
           query('SELECT count(*)::int AS n FROM varnox_premium_keys WHERE status = \'unused\''),
         ]);
+
+        // The newest code, whoever asked for it. When the bot re-pairs by itself nobody requested
+        // one, so without this the code would sit in the database and never be seen.
+        const latest = await query(
+          `SELECT phone, pairing_code, updated_at
+             FROM varnox_pairing_requests
+            WHERE status = 'code_generated' AND pairing_code IS NOT NULL
+              -- only a fresh one: an old code would sit in the panel for ever and mislead
+              AND updated_at > now() - interval '30 minutes'
+            ORDER BY updated_at DESC
+            LIMIT 1`
+        ).catch(() => ({ rows: [] }));
+
         return json(res, 200, {
           totalSessions: sess.rows[0].total,
           onlineNow: sess.rows[0].online,
           keysLeft: keys.rows[0].n,
           premiumMode: (await getSetting('premiumMode')) === 'true',
           notice: (await getSetting('notice')) || '',
+          latestCode: latest.rows[0]
+            ? { phone: latest.rows[0].phone, code: latest.rows[0].pairing_code, at: latest.rows[0].updated_at }
+            : null,
         });
       }
 

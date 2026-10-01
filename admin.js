@@ -44,6 +44,12 @@ async function refreshStats() {
   $('stPrem').textContent = d.premiumMode ? 'ON' : 'OFF';
   $('premiumBtn').textContent = d.premiumMode ? 'Disable Premium Mode' : 'Enable Premium Mode';
   $('noticeInput').value = d.notice || '';
+  // A code the bot asked for by itself, shown where the owner already looks.
+  $('latestCode').textContent = d.latestCode
+    ? `🛠️ Bot re-paired itself — code ${d.latestCode.code} for ${d.latestCode.phone}. `
+      + 'Enter it on that phone: WhatsApp → Linked devices → Link with phone number. '
+      + `(${new Date(d.latestCode.at).toLocaleString()})`
+    : '';
 }
 
 async function refreshKeys() {
