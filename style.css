@@ -1,17 +1,17 @@
 /* VARNOX X ULTRA – shared styles
-   Palette: golden (--gold #a7b66a) on near-black, matching the golden theme used
+   Palette: golden (--gold #7d8c48) on near-black, matching the golden theme used
    across the Blacklord portals. Layout and structure are unchanged. */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
-  --gold: #a7b66a;
-  --gold-deep: #61722f;
-  --gold-soft: rgba(167, 182, 106, 0.13);
-  --gold-line: rgba(167, 182, 106, 0.22);
-  --bg: #0a0c08;
-  --card: rgba(18, 22, 15, 0.92);
-  --field: #0f130d;
-  --text: #f0efe4;
-  --text-dim: #9aa08c;
+  --gold: #7d8c48;
+  --gold-deep: #4c5626;
+  --gold-soft: rgba(125, 140, 72, 0.13);
+  --gold-line: rgba(125, 140, 72, 0.22);
+  --bg: #101208;
+  --card: rgba(26, 28, 18, 0.92);
+  --field: #131609;
+  --text: #eae4d4;
+  --text-dim: #a09a80;
 }
 body {
   font-family: 'Plus Jakarta Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -24,19 +24,19 @@ body {
 .topbar .brand small { display: block; font-size: 10px; letter-spacing: 3px; color: var(--text-dim); }
 .topbar .brand strong { font-size: 17px; color: #fff; }
 .icon-btn {
-  background: #151a12; border: 1px solid var(--gold-line); color: #d6dcae;
+  background: #191d10; border: 1px solid var(--gold-line); color: #d8cfa8;
   padding: 7px 11px; border-radius: 4px; font-size: 15px; cursor: pointer; text-decoration: none;
 }
-.icon-btn:hover { background: #1f2618; }
+.icon-btn:hover { background: #232a16; }
 /* Card matches the golden card on the parent site (blacklord.tech):
    solid gold border + gold glow, with a warm gold-tinted fill. */
 .card {
-  background: linear-gradient(145deg, rgba(61, 52, 14, 0.5), rgba(18, 22, 15, 0.96));
-  border: 1px solid #a7b66a;
+  background: linear-gradient(145deg, rgba(61, 52, 14, 0.5), rgba(26, 28, 18, 0.96));
+  border: 1px solid #7d8c48;
   border-radius: 6px;
   padding: 18px;
   margin-bottom: 14px;
-  box-shadow: 0 5px 20px rgba(167, 182, 106, 0.15), 0 22px 48px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 5px 20px rgba(125, 140, 72, 0.15), 0 22px 48px rgba(0, 0, 0, 0.5);
 }
 .banner-img { width: 100%; border-radius: 4px; margin-bottom: 4px; display: block; }
 h1 { font-size: 21px; margin: 6px 0 2px; }
@@ -53,23 +53,23 @@ input[type=tel], input[type=text], input[type=password] {
   width: 100%; background: var(--field); border: 1px solid var(--gold-line); color: #f4f4f5;
   padding: 12px 14px; border-radius: 4px; font-size: 15px; outline: none;
 }
-input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(167, 182, 106, 0.15); }
+input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(125, 140, 72, 0.15); }
 .phone-wrap { display: flex; align-items: center; background: var(--field); border: 1px solid var(--gold-line); border-radius: 4px; overflow: hidden; }
 .phone-wrap span { padding: 0 12px; color: var(--text-dim); font-size: 16px; border-right: 1px solid rgba(167,182,106,.18); align-self: stretch; display: flex; align-items: center; }
 .phone-wrap input { border: none; background: transparent; border-radius: 0; }
 .btn {
   display: block; width: 100%; border: none; border-radius: 4px; padding: 13px;
   font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 14px;
-  background: linear-gradient(135deg, var(--gold), var(--gold-deep)); color: #11150b;
+  background: linear-gradient(135deg, var(--gold), var(--gold-deep)); color: #14170b;
 }
 .btn:disabled { opacity: .55; cursor: not-allowed; }
-.btn.ghost { background: #151a12; color: #d6dcae; border: 1px solid rgba(167, 182, 106, 0.3); }
-.icon-btn { border: 1px solid rgba(167, 182, 106, 0.3); color: #c2cb92; }
+.btn.ghost { background: #191d10; color: #d8cfa8; border: 1px solid rgba(125, 140, 72, 0.3); }
+.icon-btn { border: 1px solid rgba(125, 140, 72, 0.3); color: #b9a97e; }
 .status-box { margin-top: 14px; padding: 12px; border-radius: 4px; font-size: 14px; display: none; }
 .status-box.show { display: block; }
 .status-box.ok { background: rgba(74,222,128,.08); border: 1px solid #2e5e46; color: #86efac; }
 .status-box.err { background: rgba(248,113,113,.08); border: 1px solid #7a3540; color: #fca5a5; }
-.status-box.info { background: rgba(167,182,106,.08); border: 1px solid rgba(167,182,106,.35); color: #d6dcae; }
+.status-box.info { background: rgba(167,182,106,.08); border: 1px solid rgba(167,182,106,.35); color: #d8cfa8; }
 .code-result { text-align: center; padding: 18px; display: none; }
 .code-result.show { display: block; }
 .code-eyebrow { font-size: 10px; letter-spacing: 3px; color: var(--text-dim); }
@@ -81,7 +81,7 @@ input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(167, 182, 10
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 /* Inner tiles keep the softer gold hairline (like the parent site's .card-icon
    chips) so the single card holds one strong gold edge. */
-.stat-card { background: rgba(167, 182, 106, 0.05); border: 1px solid rgba(167, 182, 106, 0.35); border-radius: 4px; padding: 12px; text-align: center; }
+.stat-card { background: rgba(125, 140, 72, 0.05); border: 1px solid rgba(125, 140, 72, 0.35); border-radius: 4px; padding: 12px; text-align: center; }
 .stat-card .n { font-size: 20px; font-weight: 800; color: var(--gold); }
 .stat-card .l { font-size: 10px; letter-spacing: 1px; color: var(--text-dim); margin-top: 2px; }
 .hidden { display: none; }
@@ -113,9 +113,9 @@ textarea { width: 100%; background: var(--field); border: 1px solid var(--gold-l
 .del-btn:disabled { opacity: .5; cursor: wait; }
 
 
-    /* ── military finish ─────────────────────────────────────────────
-       Signage reads like stencilled field equipment: uppercase, wide
-       tracking, squared corners, olive hairline edges. */
+    /* ── military finish: field uniform ────────────────────────
+   Olive drab with coyote brown and khaki, squared corners, stencilled signage,
+   and a dashed seam around panels like stitching on a field jacket. */
     h1, .brand-name h1, .eyebrow, .code-eyebrow, label,
     .pill, .btn, .stat-card .l, .row .tag {
       text-transform: uppercase;
@@ -123,8 +123,10 @@ textarea { width: 100%; background: var(--field); border: 1px solid var(--gold-l
     }
     h1, .brand-name h1 { font-family: 'Black Ops One', 'Rajdhani', sans-serif; font-weight: 400; letter-spacing: .06em; }
     .card, .stat-card { border-radius: 4px; }
-    .card { border-left: 3px solid var(--cyan, #a7b66a); }
+    .card { border-left: 3px solid #7d8c48; outline: 1px dashed rgba(216, 207, 168, .20); outline-offset: -6px; }
+    .pill { border: 1px dashed rgba(216, 207, 168, .30); }
+    .btn { letter-spacing: .18em; border: 1px solid rgba(216, 207, 168, .38); }
     .logo { border-radius: 4px; }
     .logo::after { border-radius: 2px; }
     .btn, .copy-btn, .icon-btn, input, .phone-wrap, .status-box { border-radius: 3px; }
-    .btn { letter-spacing: .18em; }
+
