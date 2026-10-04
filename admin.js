@@ -1,4 +1,4 @@
-// VARNOX X ULTRA – admin dashboard logic
+// ASTROCORE X – admin dashboard logic
 let pw = sessionStorage.getItem('vn_admin_pw') || '';
 
 const $ = (id) => document.getElementById(id);

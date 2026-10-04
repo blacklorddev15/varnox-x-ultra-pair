@@ -1,4 +1,4 @@
-// VARNOX X ULTRA – pairing page logic (Neon bridge)
+// ASTROCORE X – pairing page logic (Neon bridge)
 const MENU_IMAGES = [
   'https://files.catbox.moe/bwc8vm.png',
 ];
