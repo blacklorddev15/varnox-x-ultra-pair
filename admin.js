@@ -1,4 +1,4 @@
-// ASTROCORE X – admin dashboard logic
+// ASTROCO – admin dashboard logic
 let pw = sessionStorage.getItem('vn_admin_pw') || '';
 
 const $ = (id) => document.getElementById(id);
