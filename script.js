@@ -1,4 +1,4 @@
-// ASTROCO – pairing page logic (Neon bridge)
+// ASTROCORE – pairing page logic (Neon bridge)
 const MENU_IMAGES = [
   'https://files.catbox.moe/bwc8vm.png',
 ];
