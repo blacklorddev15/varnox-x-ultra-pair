@@ -603,29 +603,34 @@
     /* ══ MILITARY THEME OVERRIDES ══ */
     :root {
       --bg: #05070a;
-      --card: linear-gradient(145deg, rgba(10, 11, 13, 0.74), rgba(4, 5, 7, 0.56));
+      --card: linear-gradient(145deg, rgba(10, 11, 13, 0.72), rgba(4, 5, 7, 0.52));
       --border: rgba(250, 204, 21, 0.18);
     }
+    /* Artwork is shown as-is: no global scrim, no darkening layers */
     .bg-artwork {
-      background-image:
-        radial-gradient(130% 95% at 18% 12%, rgba(2, 4, 9, 0.40), rgba(1, 2, 6, 0.88) 74%),
-        linear-gradient(115deg, rgba(1, 5, 12, 0.74), rgba(2, 6, 14, 0.64) 46%, rgba(1, 2, 7, 0.90)),
-        url('./background.jpg');
-      background-position: center 28%;
+      background-image: url('./background.jpg');
+      background-size: cover;
+      background-position: 48% 30%;
+      background-attachment: fixed;
     }
-    .grid-overlay {
-      background-image:
-        linear-gradient(rgba(250, 204, 21, 0.030) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(250, 204, 21, 0.030) 1px, transparent 1px);
+    .grid-overlay { display: none; }
+    .tac-overlay, .tac-overlay::before, .tac-overlay::after { display: none; }
+    /* Copy that sits directly on the artwork gets local legibility only */
+    .hero { position: relative; }
+    .hero::before {
+      content: ''; position: absolute; inset: -28px -5% -18px -28px; z-index: -1; pointer-events: none;
+      background: radial-gradient(72% 66% at 20% 46%, rgba(2, 4, 9, 0.58), rgba(2, 4, 9, 0) 100%);
     }
-    .tac-overlay {
-      position: fixed; inset: 0; z-index: 0; pointer-events: none;
-      background-image:
-        repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.20) 0 1px, transparent 1px 3px),
-        radial-gradient(125% 105% at 50% 45%, transparent 40%, rgba(0, 0, 0, 0.66) 100%);
-      opacity: .5;
+    .hero-label, .hero h2, .hero p,
+    .hero-stats .stat b, .hero-stats .stat span, .hero-tags,
+    .section-head .kicker, .section-head h2, .section-head p {
+      text-shadow: 0 2px 12px rgba(0, 0, 0, 0.95), 0 1px 4px rgba(0, 0, 0, 0.9);
     }
-    header { position: relative; background: rgba(3, 5, 10, 0.58); border-bottom: 1px solid rgba(250, 204, 21, 0.22); }
+    header {
+      position: relative; background: rgba(3, 5, 10, 0.30);
+      border-bottom: 1px solid rgba(250, 204, 21, 0.22);
+      backdrop-filter: blur(9px); -webkit-backdrop-filter: blur(9px);
+    }
     header::after {
       content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; pointer-events: none;
       background: repeating-linear-gradient(115deg, rgba(250, 204, 21, 0.8) 0 14px, rgba(6, 8, 12, 0.95) 14px 28px);
@@ -648,7 +653,7 @@
     .pair-btn, .input-wrap, .lock-icon, .code-box, .code-panel,
     .connected-box, .waiting-box, .error-box, .badge,
     .status-pill, .admin-btn, .lang-toggle { border-radius: 3px; }
-</style>
+  </style>
 </head>
 <body>
   <div class="bg-artwork"></div>
